@@ -45,19 +45,19 @@ steps:
 
 # Terraform Init
 - script: |
-    cd terraform
+    cd infra
     terraform init
   displayName: 'Terraform Init'
 
 # Terraform Validate
 - script: |
-    cd terraform
+    cd infra
     terraform validate
   displayName: 'Terraform Validate'
 
 # Terraform Plan
 - script: |
-    cd terraform
+    cd infra
 
     terraform plan \
       -out=tfplan
@@ -66,7 +66,7 @@ steps:
 
 # Terraform Apply
 - script: |
-    cd terraform
+    cd infra
 
     terraform apply \
       -auto-approve
@@ -75,7 +75,7 @@ steps:
 
 # Terraform Destroy
 - script: |
-    cd terraform
+    cd infra
 
     terraform destroy \
       -auto-approve
