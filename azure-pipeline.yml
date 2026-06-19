@@ -1,61 +1,46 @@
-trigger:
-- main
+trigger: none
+
+parameters:
+- name: terraformAction
+  displayName: 'Select Terraform Action'
+  type: string
+  default: plan
+  values:
+  - plan
+  - apply
+  - destroy
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
-stages:
+steps:
 
-- stage: TerraformPlan
-  displayName: "Terraform Plan"
+- task: TerraformInstaller@1
+  inputs:
+    terraformVersion: 'latest'
 
-  jobs:
-  - job: Plan
-    steps:
+- task: AzureCLI@2
+  displayName: 'Terraform Execution'
+  inputs:
+    azureSubscription: 'AzureTerraform'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
 
-    - task: TerraformInstaller@1
-      inputs:
-        terraformVersion: 'latest'
+      cd terraform
 
-    - task: AzureCLI@2
-      inputs:
-        azureSubscription: 'AzureTerraform'
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          cd terraform
+      terraform init
 
-          terraform init
+      terraform validate
 
-          terraform validate
+      if [ '${{ parameters.terraformAction }}' = 'plan' ]; then
+        terraform plan
+      fi
 
-          terraform plan -out=tfplan
+      if [ '${{ parameters.terraformAction }}' = 'apply' ]; then
+        terraform apply -auto-approve
+      fi
 
-- stage: TerraformApply
-  displayName: "Terraform Apply"
-  dependsOn: TerraformPlan
-
-  jobs:
-  - deployment: Apply
-    environment: terraform-approval
-
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-
-          - task: TerraformInstaller@1
-            inputs:
-              terraformVersion: 'latest'
-
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'AzureTerraform'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                cd terraform
-
-                terraform init
-
-                terraform apply -auto-approve
+      if [ '${{ parameters.terraformAction }}' = 'destroy' ]; then
+        terraform destroy -auto-approve
+      fi
