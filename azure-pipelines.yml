@@ -1,58 +1,78 @@
+trigger: none
+
 parameters:
-- name: action
+- name: terraformAction
   displayName: Terraform Action
   type: string
   default: plan
   values:
-  - plan
-  - apply
-  - destroy
-
-trigger: none
+    - plan
+    - apply
+    - destroy
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 steps:
 
+# Azure Login
 - task: AzureCLI@2
-  displayName: Azure Login
+  displayName: 'Azure Login'
   inputs:
     azureSubscription: 'AzureTerraform'
-    scriptType: bash
-    scriptLocation: inlineScript
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
     inlineScript: |
-      wget https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_linux_amd64.zip
-      sudo apt-get update
-      sudo apt-get install unzip -y
-      unzip terraform_1.8.5_linux_amd64.zip
-      sudo mv terraform /usr/local/bin/
-      terraform version
+      echo "Logged into Azure"
 
+# Install Terraform
+- script: |
+    wget https://releases.hashicorp.com/terraform/1.8.5/terraform_1.8.5_linux_amd64.zip
+
+    sudo apt-get update
+    sudo apt-get install unzip -y
+
+    unzip -o terraform_1.8.5_linux_amd64.zip
+    sudo mv terraform /usr/local/bin/
+
+    terraform version
+  displayName: 'Install Terraform'
+
+# Terraform Init
 - script: |
     cd terraform
     terraform init
-  displayName: Terraform Init
+  displayName: 'Terraform Init'
 
+# Terraform Validate
 - script: |
     cd terraform
     terraform validate
-  displayName: Terraform Validate
+  displayName: 'Terraform Validate'
 
+# Terraform Plan
 - script: |
     cd terraform
-    terraform plan
-  displayName: Terraform Plan
-  condition: eq('${{ parameters.action }}','plan')
 
+    terraform plan \
+      -out=tfplan
+  displayName: 'Terraform Plan'
+  condition: eq('${{ parameters.terraformAction }}', 'plan')
+
+# Terraform Apply
 - script: |
     cd terraform
-    terraform apply -auto-approve
-  displayName: Terraform Apply
-  condition: eq('${{ parameters.action }}','apply')
 
+    terraform apply \
+      -auto-approve
+  displayName: 'Terraform Apply'
+  condition: eq('${{ parameters.terraformAction }}', 'apply')
+
+# Terraform Destroy
 - script: |
     cd terraform
-    terraform destroy -auto-approve
-  displayName: Terraform Destroy
-  condition: eq('${{ parameters.action }}','destroy')
+
+    terraform destroy \
+      -auto-approve
+  displayName: 'Terraform Destroy'
+  condition: eq('${{ parameters.terraformAction }}', 'destroy')
