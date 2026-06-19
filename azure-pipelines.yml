@@ -9,9 +9,16 @@ parameters:
     - plan
     - apply
     - destroy
+- name: variableGroupName
+  displayName: Azure DevOps Variable Group Name
+  type: string
+  default: terraform-azure-creds
 
 pool:
   vmImage: 'ubuntu-latest'
+
+variables:
+- group: ${{ parameters.variableGroupName }}
 
 steps:
 
@@ -29,6 +36,25 @@ steps:
 
     terraform version
   displayName: 'Install Terraform'
+
+# Check Azure authentication variables before Terraform contacts Azure.
+- script: |
+    set -e
+
+    for name in ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_SUBSCRIPTION_ID ARM_TENANT_ID; do
+      value="${!name}"
+
+      if [ -z "$value" ] || [[ "$value" == \$\(* ]]; then
+        echo "##vso[task.logissue type=error]Pipeline variable $name is missing or still set to a placeholder. Set it to the real Azure value in Pipeline variables or a linked variable group."
+        exit 1
+      fi
+    done
+  displayName: 'Validate Azure Credentials Variables'
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
 # Terraform Init
 - script: |
