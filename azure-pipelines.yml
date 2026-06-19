@@ -15,16 +15,6 @@ pool:
 
 steps:
 
-# Azure Login
-- task: AzureCLI@2
-  displayName: 'Azure Login'
-  inputs:
-    azureSubscription: 'AzureTerraform'
-    scriptType: 'bash'
-    scriptLocation: 'inlineScript'
-    inlineScript: |
-      echo "Logged into Azure"
-
 # Install Terraform
 - script: |
     sudo apt-get update
@@ -34,10 +24,7 @@ steps:
 
     unzip -o terraform_1.8.5_linux_amd64.zip
 
-    ls -ltr
-
     sudo chmod +x terraform
-
     sudo mv terraform /usr/local/bin/
 
     terraform version
@@ -45,39 +32,53 @@ steps:
 
 # Terraform Init
 - script: |
-    cd infra
     terraform init
+  workingDirectory: $(Build.SourcesDirectory)
   displayName: 'Terraform Init'
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
 # Terraform Validate
 - script: |
-    cd infra
     terraform validate
+  workingDirectory: $(Build.SourcesDirectory)
   displayName: 'Terraform Validate'
 
 # Terraform Plan
 - script: |
-    cd infra
-
-    terraform plan \
-      -out=tfplan
+    terraform plan -out=tfplan
+  workingDirectory: $(Build.SourcesDirectory)
   displayName: 'Terraform Plan'
-  condition: eq('${{ parameters.terraformAction }}', 'plan')
+  condition: eq('${{ parameters.terraformAction }}','plan')
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
 # Terraform Apply
 - script: |
-    cd infra
-
-    terraform apply \
-      -auto-approve
+    terraform apply -auto-approve
+  workingDirectory: $(Build.SourcesDirectory)
   displayName: 'Terraform Apply'
-  condition: eq('${{ parameters.terraformAction }}', 'apply')
+  condition: eq('${{ parameters.terraformAction }}','apply')
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
 # Terraform Destroy
 - script: |
-    cd infra
-
-    terraform destroy \
-      -auto-approve
+    terraform destroy -auto-approve
+  workingDirectory: $(Build.SourcesDirectory)
   displayName: 'Terraform Destroy'
-  condition: eq('${{ parameters.terraformAction }}', 'destroy')
+  condition: eq('${{ parameters.terraformAction }}','destroy')
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
