@@ -33,7 +33,7 @@ steps:
 # Terraform Init
 - script: |
     terraform init
-  workingDirectory: $(Build.SourcesDirectory)
+  workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Init'
   env:
     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
@@ -44,13 +44,13 @@ steps:
 # Terraform Validate
 - script: |
     terraform validate
-  workingDirectory: $(Build.SourcesDirectory)
+  workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Validate'
 
 # Terraform Plan
 - script: |
     terraform plan -out=tfplan
-  workingDirectory: $(Build.SourcesDirectory)
+  workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Plan'
   condition: eq('${{ parameters.terraformAction }}','plan')
   env:
@@ -62,7 +62,7 @@ steps:
 # Terraform Apply
 - script: |
     terraform apply -auto-approve
-  workingDirectory: $(Build.SourcesDirectory)
+  workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Apply'
   condition: eq('${{ parameters.terraformAction }}','apply')
   env:
@@ -74,7 +74,7 @@ steps:
 # Terraform Destroy
 - script: |
     terraform destroy -auto-approve
-  workingDirectory: $(Build.SourcesDirectory)
+  workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Destroy'
   condition: eq('${{ parameters.terraformAction }}','destroy')
   env:
