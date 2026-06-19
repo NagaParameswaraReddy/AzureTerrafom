@@ -15,17 +15,18 @@ pool:
 
 steps:
 
-- task: TerraformInstaller@1
-  inputs:
-    terraformVersion: 'latest'
-
 - task: AzureCLI@2
-  displayName: 'Terraform Execution'
   inputs:
     azureSubscription: 'AzureTerraform'
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
+
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+      sudo apt-get update
+      sudo apt-get install -y terraform
+
+      terraform version
 
       cd terraform
 
