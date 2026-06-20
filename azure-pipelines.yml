@@ -13,26 +13,6 @@ parameters:
   displayName: Azure DevOps Variable Group Name
   type: string
   default: terraform-azure-creds
-- name: backendResourceGroupName
-  displayName: Terraform State Resource Group
-  type: string
-  default: tfstate-rg
-- name: backendLocation
-  displayName: Terraform State Location
-  type: string
-  default: centralindia
-- name: backendStorageAccountName
-  displayName: Terraform State Storage Account
-  type: string
-  default: tfstateazurevm001
-- name: backendContainerName
-  displayName: Terraform State Container
-  type: string
-  default: tfstate
-- name: backendStateKey
-  displayName: Terraform State File Name
-  type: string
-  default: azure-vm-terraform.tfstate
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -61,7 +41,7 @@ steps:
 - script: |
     set -e
 
-    for name in ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_SUBSCRIPTION_ID ARM_TENANT_ID; do
+    for name in ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_SUBSCRIPTION_ID ARM_TENANT_ID TFSTATE_RESOURCE_GROUP TFSTATE_LOCATION TFSTATE_STORAGE_ACCOUNT TFSTATE_CONTAINER TFSTATE_KEY; do
       value="${!name}"
 
       if [ -z "$value" ] || [[ "$value" == \$\(* ]]; then
@@ -75,6 +55,11 @@ steps:
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
+    TFSTATE_RESOURCE_GROUP: $(TFSTATE_RESOURCE_GROUP)
+    TFSTATE_LOCATION: $(TFSTATE_LOCATION)
+    TFSTATE_STORAGE_ACCOUNT: $(TFSTATE_STORAGE_ACCOUNT)
+    TFSTATE_CONTAINER: $(TFSTATE_CONTAINER)
+    TFSTATE_KEY: $(TFSTATE_KEY)
 
 # Create the Azure Storage backend used by Terraform state.
 - script: |
@@ -90,30 +75,30 @@ steps:
     az account set --subscription "$ARM_SUBSCRIPTION_ID"
 
     az group create \
-      --name "${{ parameters.backendResourceGroupName }}" \
-      --location "${{ parameters.backendLocation }}"
+      --name "$TFSTATE_RESOURCE_GROUP" \
+      --location "$TFSTATE_LOCATION"
 
     if ! az storage account show \
-      --name "${{ parameters.backendStorageAccountName }}" \
-      --resource-group "${{ parameters.backendResourceGroupName }}" >/dev/null 2>&1; then
+      --name "$TFSTATE_STORAGE_ACCOUNT" \
+      --resource-group "$TFSTATE_RESOURCE_GROUP" >/dev/null 2>&1; then
       az storage account create \
-        --name "${{ parameters.backendStorageAccountName }}" \
-        --resource-group "${{ parameters.backendResourceGroupName }}" \
-        --location "${{ parameters.backendLocation }}" \
+        --name "$TFSTATE_STORAGE_ACCOUNT" \
+        --resource-group "$TFSTATE_RESOURCE_GROUP" \
+        --location "$TFSTATE_LOCATION" \
         --sku Standard_LRS \
         --kind StorageV2 \
         --min-tls-version TLS1_2
     fi
 
     account_key=$(az storage account keys list \
-      --account-name "${{ parameters.backendStorageAccountName }}" \
-      --resource-group "${{ parameters.backendResourceGroupName }}" \
+      --account-name "$TFSTATE_STORAGE_ACCOUNT" \
+      --resource-group "$TFSTATE_RESOURCE_GROUP" \
       --query "[0].value" \
       --output tsv)
 
     az storage container create \
-      --name "${{ parameters.backendContainerName }}" \
-      --account-name "${{ parameters.backendStorageAccountName }}" \
+      --name "$TFSTATE_CONTAINER" \
+      --account-name "$TFSTATE_STORAGE_ACCOUNT" \
       --account-key "$account_key"
   displayName: 'Create Terraform State Storage'
   env:
@@ -121,14 +106,18 @@ steps:
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
+    TFSTATE_RESOURCE_GROUP: $(TFSTATE_RESOURCE_GROUP)
+    TFSTATE_LOCATION: $(TFSTATE_LOCATION)
+    TFSTATE_STORAGE_ACCOUNT: $(TFSTATE_STORAGE_ACCOUNT)
+    TFSTATE_CONTAINER: $(TFSTATE_CONTAINER)
 
 # Terraform Init
 - script: |
     terraform init \
-      -backend-config="resource_group_name=${{ parameters.backendResourceGroupName }}" \
-      -backend-config="storage_account_name=${{ parameters.backendStorageAccountName }}" \
-      -backend-config="container_name=${{ parameters.backendContainerName }}" \
-      -backend-config="key=${{ parameters.backendStateKey }}"
+      -backend-config="resource_group_name=$TFSTATE_RESOURCE_GROUP" \
+      -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT" \
+      -backend-config="container_name=$TFSTATE_CONTAINER" \
+      -backend-config="key=$TFSTATE_KEY"
   workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Init'
   env:
@@ -136,6 +125,10 @@ steps:
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
+    TFSTATE_RESOURCE_GROUP: $(TFSTATE_RESOURCE_GROUP)
+    TFSTATE_STORAGE_ACCOUNT: $(TFSTATE_STORAGE_ACCOUNT)
+    TFSTATE_CONTAINER: $(TFSTATE_CONTAINER)
+    TFSTATE_KEY: $(TFSTATE_KEY)
 
 # Terraform Validate
 - script: |
