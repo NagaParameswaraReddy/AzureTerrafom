@@ -36,7 +36,7 @@ The Azure DevOps pipeline performs these steps:
 2. Reads Azure credentials and backend configuration from an Azure DevOps Variable Group.
 3. Validates that all required variables are available.
 4. Logs in to Azure using a Service Principal.
-5. Creates the Terraform state resource group, storage account, and container if they do not already exist.
+5. Verifies that the Terraform state resource group, storage account, and container already exist.
 6. Runs `terraform init` using the Azure Storage backend.
 7. Runs `terraform validate`.
 8. Runs one of the selected Terraform actions:
@@ -139,7 +139,7 @@ Storage account naming rules:
 
 Terraform state is stored in Azure Blob Storage.
 
-The pipeline creates the backend storage resources before running `terraform init`.
+The backend storage resources should be created before running the pipeline. The pipeline verifies that the resource group, storage account, and container exist before running `terraform init`.
 
 The state file is stored in this format:
 

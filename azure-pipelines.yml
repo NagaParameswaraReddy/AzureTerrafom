@@ -61,7 +61,7 @@ steps:
     TFSTATE_CONTAINER: $(TFSTATE_CONTAINER)
     TFSTATE_KEY: $(TFSTATE_KEY)
 
-# Create the Azure Storage backend used by Terraform state.
+# Verify the existing Azure Storage backend used by Terraform state.
 - script: |
     set -e
 
@@ -74,20 +74,16 @@ steps:
 
     az account set --subscription "$ARM_SUBSCRIPTION_ID"
 
-    az group create \
-      --name "$TFSTATE_RESOURCE_GROUP" \
-      --location "$TFSTATE_LOCATION"
+    if ! az group show --name "$TFSTATE_RESOURCE_GROUP" >/dev/null 2>&1; then
+      echo "##vso[task.logissue type=error]Terraform state resource group '$TFSTATE_RESOURCE_GROUP' does not exist."
+      exit 1
+    fi
 
     if ! az storage account show \
       --name "$TFSTATE_STORAGE_ACCOUNT" \
       --resource-group "$TFSTATE_RESOURCE_GROUP" >/dev/null 2>&1; then
-      az storage account create \
-        --name "$TFSTATE_STORAGE_ACCOUNT" \
-        --resource-group "$TFSTATE_RESOURCE_GROUP" \
-        --location "$TFSTATE_LOCATION" \
-        --sku Standard_LRS \
-        --kind StorageV2 \
-        --min-tls-version TLS1_2
+      echo "##vso[task.logissue type=error]Terraform state storage account '$TFSTATE_STORAGE_ACCOUNT' does not exist in resource group '$TFSTATE_RESOURCE_GROUP'."
+      exit 1
     fi
 
     account_key=$(az storage account keys list \
@@ -96,11 +92,19 @@ steps:
       --query "[0].value" \
       --output tsv)
 
-    az storage container create \
+    if [ -z "$account_key" ]; then
+      echo "##vso[task.logissue type=error]Could not read access key for Terraform state storage account '$TFSTATE_STORAGE_ACCOUNT'."
+      exit 1
+    fi
+
+    if ! az storage container show \
       --name "$TFSTATE_CONTAINER" \
       --account-name "$TFSTATE_STORAGE_ACCOUNT" \
-      --account-key "$account_key"
-  displayName: 'Create Terraform State Storage'
+      --account-key "$account_key" >/dev/null 2>&1; then
+      echo "##vso[task.logissue type=error]Terraform state container '$TFSTATE_CONTAINER' does not exist in storage account '$TFSTATE_STORAGE_ACCOUNT'."
+      exit 1
+    fi
+  displayName: 'Verify Terraform State Storage'
   env:
     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
