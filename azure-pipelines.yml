@@ -13,6 +13,26 @@ parameters:
   displayName: Azure DevOps Variable Group Name
   type: string
   default: terraform-azure-creds
+- name: backendResourceGroupName
+  displayName: Terraform State Resource Group
+  type: string
+  default: tfstate-rg
+- name: backendLocation
+  displayName: Terraform State Location
+  type: string
+  default: centralindia
+- name: backendStorageAccountName
+  displayName: Terraform State Storage Account
+  type: string
+  default: tfstateazurevm001
+- name: backendContainerName
+  displayName: Terraform State Container
+  type: string
+  default: tfstate
+- name: backendStateKey
+  displayName: Terraform State File Name
+  type: string
+  default: azure-vm-terraform.tfstate
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -56,9 +76,59 @@ steps:
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
+# Create the Azure Storage backend used by Terraform state.
+- script: |
+    set -e
+
+    az login \
+      --service-principal \
+      --username "$ARM_CLIENT_ID" \
+      --password "$ARM_CLIENT_SECRET" \
+      --tenant "$ARM_TENANT_ID" \
+      --allow-no-subscriptions
+
+    az account set --subscription "$ARM_SUBSCRIPTION_ID"
+
+    az group create \
+      --name "${{ parameters.backendResourceGroupName }}" \
+      --location "${{ parameters.backendLocation }}"
+
+    if ! az storage account show \
+      --name "${{ parameters.backendStorageAccountName }}" \
+      --resource-group "${{ parameters.backendResourceGroupName }}" >/dev/null 2>&1; then
+      az storage account create \
+        --name "${{ parameters.backendStorageAccountName }}" \
+        --resource-group "${{ parameters.backendResourceGroupName }}" \
+        --location "${{ parameters.backendLocation }}" \
+        --sku Standard_LRS \
+        --kind StorageV2 \
+        --min-tls-version TLS1_2
+    fi
+
+    account_key=$(az storage account keys list \
+      --account-name "${{ parameters.backendStorageAccountName }}" \
+      --resource-group "${{ parameters.backendResourceGroupName }}" \
+      --query "[0].value" \
+      --output tsv)
+
+    az storage container create \
+      --name "${{ parameters.backendContainerName }}" \
+      --account-name "${{ parameters.backendStorageAccountName }}" \
+      --account-key "$account_key"
+  displayName: 'Create Terraform State Storage'
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
+
 # Terraform Init
 - script: |
-    terraform init
+    terraform init \
+      -backend-config="resource_group_name=${{ parameters.backendResourceGroupName }}" \
+      -backend-config="storage_account_name=${{ parameters.backendStorageAccountName }}" \
+      -backend-config="container_name=${{ parameters.backendContainerName }}" \
+      -backend-config="key=${{ parameters.backendStateKey }}"
   workingDirectory: $(Build.SourcesDirectory)/infra
   displayName: 'Terraform Init'
   env:
